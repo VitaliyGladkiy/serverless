@@ -1,0 +1,63 @@
+service: start
+app: serverless
+org: vitaliygladkiy
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+  stage: dev
+  profile: default
+  region: us-east-1
+  environment:
+    DYNAMODB_TABLE: ${self:service}-x-${opt:stage, self:provider.stage}
+  iamRoleStatements:
+  - Effect: Allow
+    Action:
+    - dynamodb:Query
+    - dynamodb:Scan
+    - dynamodb:GetItem
+    - dynamodb:PutItem
+    - dynamodb:UpdateItem
+    - dynamodb:DeleteItem
+    Resource: "arn:aws:dynamodb:us-east-1:*:*"
+
+plugins:
+- serverless-offline
+- serverless-dynamodb-local
+
+functions:
+  saveMessage:
+    handler: handler.saveMessage
+    events:
+      - http:
+          path: saveMessage
+          method: post
+  health:
+    handler: handler.health
+    events:
+      - http:
+          path: health
+          method: get
+  getMessage:
+    handler: handler.getMessage
+    events:
+      - http:
+          path: getMessage/{id}
+          method: get
+
+resources:
+  Resources:
+    NoteTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+        KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
