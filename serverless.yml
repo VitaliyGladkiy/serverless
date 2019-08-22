@@ -10,6 +10,7 @@ provider:
   region: us-east-1
   environment:
     DYNAMODB_TABLE: ${self:service}-x-${opt:stage, self:provider.stage}
+    DYNAMODB_JOURNAL_TABLE: ${self:service}-x-${opt:stage, self:provider.stage}-event-journal
   iamRoleStatements:
   - Effect: Allow
     Action:
@@ -20,12 +21,35 @@ provider:
     - dynamodb:UpdateItem
     - dynamodb:DeleteItem
     Resource: "arn:aws:dynamodb:us-east-1:*:*"
-
+  - Effect: "Allow"
+    Action:
+    - "SNS:Publish"
+    Resource: "arn:aws:sns:us-east-1:758472204456:test-topic"
 plugins:
 - serverless-offline
 - serverless-dynamodb-local
+#- serverless-offline-sns
+custom:
+  serverless-offline:
+    port: 4000
 
 functions:
+  showJournal:
+    handler: handler.showJournal
+    events:
+      - http:
+          path: showJournal
+          method: get
+  publish:
+    handler: handler.publish
+    events:
+      - http:
+          path: publish
+          method: get
+  subscriber:
+    handler: handler.subscriber
+    events:
+      - sns: test-topic
   saveMessage:
     handler: handler.saveMessage
     events:
@@ -61,3 +85,17 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:provider.environment.DYNAMODB_TABLE}
+    JournalTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+        KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.DYNAMODB_JOURNAL_TABLE}
